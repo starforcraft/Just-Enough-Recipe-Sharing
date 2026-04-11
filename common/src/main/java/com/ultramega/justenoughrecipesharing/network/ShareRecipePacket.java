@@ -35,7 +35,7 @@ public record ShareRecipePacket(Identifier recipeTypeUid, Tag recipeTag) impleme
 
     public static final StreamCodec<ByteBuf, ShareRecipePacket> STREAM_CODEC = StreamCodec.composite(
         Identifier.STREAM_CODEC, ShareRecipePacket::recipeTypeUid,
-        ByteBufCodecs.TRUSTED_TAG, ShareRecipePacket::recipeTag,
+        ByteBufCodecs.TAG, ShareRecipePacket::recipeTag,
         ShareRecipePacket::new
     );
 

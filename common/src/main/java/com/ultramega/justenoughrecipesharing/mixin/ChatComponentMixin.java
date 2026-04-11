@@ -95,8 +95,8 @@ public abstract class ChatComponentMixin implements RecipeChatLookup {
             return;
         }
 
-        // The newest entry is at the front.
-        // Its current bottom-most line is the first endOfEntry=true line.
+        // The newest entry is at the front
+        // Its current bottom-most line is the first endOfEntry=true line
         int endIndex = -1;
         for (int i = 0; i < this.trimmedMessages.size(); i++) {
             if (this.trimmedMessages.get(i).endOfEntry()) {
@@ -112,8 +112,8 @@ public abstract class ChatComponentMixin implements RecipeChatLookup {
         final GuiMessage.Line originalEnd = this.trimmedMessages.get(endIndex);
         this.trimmedMessages.set(endIndex, new GuiMessage.Line(originalEnd.parent(), originalEnd.content(), false));
 
-        // Insert spacers at the front so they are BELOW the text visually.
-        // Index 0 is the bottom-most line.
+        // Insert spacers at the front so they are BELOW the text visually
+        // Index 0 is the bottom-most line
         for (int spacerIndexFromBottom = pending.spacerLines() - 1; spacerIndexFromBottom >= 0; spacerIndexFromBottom--) {
             final boolean isBottomMostSpacer = spacerIndexFromBottom == 0;
 
@@ -157,6 +157,5 @@ public abstract class ChatComponentMixin implements RecipeChatLookup {
 
     @Unique
     private record JersPendingSpacer(GuiMessage message, int spacerLines) {
-
     }
 }

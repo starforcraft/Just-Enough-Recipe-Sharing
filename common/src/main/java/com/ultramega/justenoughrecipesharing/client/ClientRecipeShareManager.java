@@ -4,11 +4,11 @@ import com.ultramega.justenoughrecipesharing.Constants;
 import com.ultramega.justenoughrecipesharing.network.ShareRecipePacket;
 import com.ultramega.justenoughrecipesharing.recipes.RecipeChatComponentFactory;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 import com.mojang.serialization.Codec;
@@ -29,7 +29,14 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 public final class ClientRecipeShareManager {
-    private static final Map<UUID, SharedRecipeDrawable<?>> DRAWABLES = new ConcurrentHashMap<>();
+    private static final int MAX_SHARED_RECIPES = 50;
+    private static final Map<UUID, SharedRecipeDrawable<?>> DRAWABLES =
+        new LinkedHashMap<>(256, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(final Map.Entry<UUID, SharedRecipeDrawable<?>> eldest) {
+                return this.size() > MAX_SHARED_RECIPES;
+            }
+        };
 
     private ClientRecipeShareManager() {
     }
