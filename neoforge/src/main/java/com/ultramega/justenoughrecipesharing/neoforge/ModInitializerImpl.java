@@ -1,4 +1,4 @@
-package com.ultramega.justenoughrecipesharing;
+package com.ultramega.justenoughrecipesharing.neoforge;
 
 import com.ultramega.justenoughrecipesharing.network.ShareRecipePacket;
 

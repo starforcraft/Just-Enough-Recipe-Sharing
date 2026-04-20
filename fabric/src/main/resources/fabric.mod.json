@@ -16,10 +16,10 @@
   "environment": "*",
   "entrypoints": {
     "main": [
-      "com.ultramega.justenoughrecipesharing.ModInitializerImpl"
+      "com.ultramega.justenoughrecipesharing.fabric.ModInitializerImpl"
     ],
     "client": [
-      "com.ultramega.justenoughrecipesharing.ClientModInitializerImpl"
+      "com.ultramega.justenoughrecipesharing.fabric.ClientModInitializerImpl"
     ],
     "jei_mod_plugin": [
       "com.ultramega.justenoughrecipesharing.JeiRecipeSharingPlugin"

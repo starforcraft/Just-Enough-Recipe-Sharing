@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import javax.annotation.Nullable;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
@@ -25,8 +24,10 @@ import mezz.jei.common.Internal;
 import net.minecraft.client.Minecraft;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import org.jspecify.annotations.Nullable;
 
 public final class ClientRecipeShareManager {
     private static final int MAX_SHARED_RECIPES = 50;
@@ -79,7 +80,7 @@ public final class ClientRecipeShareManager {
 
             createAndStoreDrawable(runtime, (IRecipeCategory<Object>) category, recipe)
                 .ifPresent(id -> player.sendSystemMessage(
-                    RecipeChatComponentFactory.makeSharedRecipeMessage(player.getName(), id)
+                    RecipeChatComponentFactory.makeSharedRecipeMessage(Component.literal(payload.sharerName()), id)
                 ));
         });
     }

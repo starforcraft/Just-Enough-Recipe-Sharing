@@ -3,10 +3,10 @@ package com.ultramega.justenoughrecipesharing.client;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import javax.annotation.Nullable;
 
 import net.minecraft.client.multiplayer.chat.GuiMessage;
 import net.minecraft.client.renderer.Rect2i;
+import org.jspecify.annotations.Nullable;
 
 public final class ClientChatRecipeInteraction {
     private static final List<Entry> ENTRIES = new ArrayList<>();

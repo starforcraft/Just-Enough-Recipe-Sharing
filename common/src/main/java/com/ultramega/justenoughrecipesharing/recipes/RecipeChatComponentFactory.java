@@ -1,12 +1,12 @@
 package com.ultramega.justenoughrecipesharing.recipes;
 
 import java.util.UUID;
-import javax.annotation.Nullable;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.FormattedCharSequence;
+import org.jspecify.annotations.Nullable;
 
 public final class RecipeChatComponentFactory {
     private static final String PREFIX = "jers:";

@@ -7,7 +7,6 @@ import com.ultramega.justenoughrecipesharing.platform.Services;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import javax.annotation.Nullable;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
@@ -23,19 +22,24 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import org.jspecify.annotations.Nullable;
 
-public record ShareRecipePacket(Identifier recipeTypeUid, Tag recipeTag) implements CustomPacketPayload {
+public record ShareRecipePacket(Identifier recipeTypeUid, Tag recipeTag, String sharerName) implements CustomPacketPayload {
     public static final Type<ShareRecipePacket> TYPE = new Type<>(Constants.modLoc("share_recipe_data"));
 
+    // TODO: add a max allowed string size
     public static final StreamCodec<ByteBuf, ShareRecipePacket> STREAM_CODEC = StreamCodec.composite(
         Identifier.STREAM_CODEC, ShareRecipePacket::recipeTypeUid,
         ByteBufCodecs.TAG, ShareRecipePacket::recipeTag,
+        ByteBufCodecs.STRING_UTF8, ShareRecipePacket::sharerName,
         ShareRecipePacket::new
     );
 
@@ -54,10 +58,14 @@ public record ShareRecipePacket(Identifier recipeTypeUid, Tag recipeTag) impleme
     }
 
     @Nullable
-    public static <T> ShareRecipePacket encode(final IJeiHelpers jeiHelpers, final IRecipeCategory<T> category, final Identifier recipeTypeUid, final T recipe) {
+    public static <T> ShareRecipePacket encode(final IJeiHelpers jeiHelpers,
+                                               final IRecipeCategory<T> category,
+                                               final Identifier recipeTypeUid,
+                                               final T recipe,
+                                               @Nullable final Player player) {
         // Unfortunately fuel recipes need to be handled separately
         if (recipe instanceof IJeiFuelingRecipe fuelingRecipe) {
-            return encodeFuel(jeiHelpers, recipeTypeUid, fuelingRecipe);
+            return encodeFuel(jeiHelpers, recipeTypeUid, fuelingRecipe, player);
         }
 
         final ICodecHelper codecHelper = jeiHelpers.getCodecHelper();
@@ -70,11 +78,14 @@ public record ShareRecipePacket(Identifier recipeTypeUid, Tag recipeTag) impleme
             return null;
         }
 
-        return new ShareRecipePacket(recipeTypeUid, wrapPayload(KIND_NORMAL, encoded.result().orElseThrow()));
+        return new ShareRecipePacket(recipeTypeUid, wrapPayload(KIND_NORMAL, encoded.result().orElseThrow()), getSharerName(player));
     }
 
     @Nullable
-    private static ShareRecipePacket encodeFuel(final IJeiHelpers jeiHelpers, final Identifier recipeTypeUid, final IJeiFuelingRecipe recipe) {
+    private static ShareRecipePacket encodeFuel(final IJeiHelpers jeiHelpers,
+                                                final Identifier recipeTypeUid,
+                                                final IJeiFuelingRecipe recipe,
+                                                @Nullable final Player player) {
         final Codec<ITypedIngredient<ItemStack>> itemStackCodec = jeiHelpers.getCodecHelper()
             .getTypedIngredientCodec(VanillaTypes.ITEM_STACK);
 
@@ -101,7 +112,7 @@ public record ShareRecipePacket(Identifier recipeTypeUid, Tag recipeTag) impleme
         fuelData.put(INPUTS_KEY, inputsTag);
         fuelData.putInt(BURN_TIME_KEY, recipe.getBurnTime());
 
-        return new ShareRecipePacket(recipeTypeUid, wrapPayload(KIND_FUEL, fuelData));
+        return new ShareRecipePacket(recipeTypeUid, wrapPayload(KIND_FUEL, fuelData), getSharerName(player));
     }
 
     public static boolean isFuelPayload(final Tag tag) {
@@ -154,6 +165,13 @@ public record ShareRecipePacket(Identifier recipeTypeUid, Tag recipeTag) impleme
         root.putString(KIND_KEY, kind);
         root.put(DATA_KEY, data);
         return root;
+    }
+
+    private static String getSharerName(@Nullable final Player player) {
+        if (player != null) {
+            return player.getName().getString();
+        }
+        return Component.translatable("misc.justenoughrecipesharing.unknown").getString();
     }
 
     public static void handleServer(final ShareRecipePacket payload, @Nullable final MinecraftServer server) {

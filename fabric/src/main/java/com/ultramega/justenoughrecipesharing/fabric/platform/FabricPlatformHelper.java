@@ -1,4 +1,4 @@
-package com.ultramega.justenoughrecipesharing.platform;
+package com.ultramega.justenoughrecipesharing.fabric.platform;
 
 import com.ultramega.justenoughrecipesharing.platform.services.IPlatformHelper;
 

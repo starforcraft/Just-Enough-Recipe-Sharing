@@ -12,6 +12,7 @@ import mezz.jei.api.gui.drawable.IDrawableStatic;
 import mezz.jei.api.gui.inputs.IJeiUserInput;
 import mezz.jei.api.helpers.IJeiHelpers;
 import mezz.jei.api.recipe.category.IRecipeCategory;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
@@ -55,7 +56,7 @@ public class RecipeShareButtonController<T> implements IIconButtonController {
         // TODO: currently if an ingredient is a tag all clients see different items in chat
         //  so either create a snapshot of the items and display it for all clients accordingly
         //  or cycle through the items like in the JEI view
-        final var packet = ShareRecipePacket.encode(this.jeiHelpers, category, recipeTypeUid, recipe);
+        final var packet = ShareRecipePacket.encode(this.jeiHelpers, category, recipeTypeUid, recipe, Minecraft.getInstance().player);
         if (packet != null) {
             Services.PLATFORM.sendPacketToServer(packet);
         }

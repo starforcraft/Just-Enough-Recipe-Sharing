@@ -1,9 +1,9 @@
 package com.ultramega.justenoughrecipesharing.recipes;
 
 import java.util.UUID;
-import javax.annotation.Nullable;
 
 import net.minecraft.client.multiplayer.chat.GuiMessage;
+import org.jspecify.annotations.Nullable;
 
 public interface RecipeChatLookup {
     @Nullable
