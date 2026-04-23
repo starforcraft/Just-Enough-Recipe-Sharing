@@ -6,20 +6,18 @@ import com.ultramega.justenoughrecipesharing.platform.Services;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import io.netty.buffer.ByteBuf;
-import mezz.jei.api.constants.VanillaTypes;
+import mezz.jei.api.gui.ingredient.IRecipeSlotView;
+import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.helpers.ICodecHelper;
 import mezz.jei.api.helpers.IJeiHelpers;
-import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.recipe.category.IRecipeCategory;
 import mezz.jei.api.recipe.vanilla.IJeiFuelingRecipe;
 import mezz.jei.common.Internal;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
@@ -29,28 +27,25 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.Nullable;
 
-public record ShareRecipePacket(Identifier recipeTypeUid, Tag recipeTag, String sharerName) implements CustomPacketPayload {
+import static com.ultramega.justenoughrecipesharing.network.FuelPayload.encodeFuel;
+
+public record ShareRecipePacket(Identifier recipeTypeUid, Tag recipeTag, List<FocusPayload> focuses, String sharerName) implements CustomPacketPayload {
     public static final Type<ShareRecipePacket> TYPE = new Type<>(Constants.modLoc("share_recipe_data"));
 
-    // TODO: add a max allowed string size
     public static final StreamCodec<ByteBuf, ShareRecipePacket> STREAM_CODEC = StreamCodec.composite(
         Identifier.STREAM_CODEC, ShareRecipePacket::recipeTypeUid,
         ByteBufCodecs.TAG, ShareRecipePacket::recipeTag,
-        ByteBufCodecs.STRING_UTF8, ShareRecipePacket::sharerName,
+        FocusPayload.STREAM_CODEC.apply(ByteBufCodecs.list()), ShareRecipePacket::focuses,
+        ByteBufCodecs.stringUtf8(16), ShareRecipePacket::sharerName,
         ShareRecipePacket::new
     );
 
-    private static final String KIND_KEY = "kind";
-    private static final String DATA_KEY = "data";
+    public static final String KIND_KEY = "kind";
+    public static final String DATA_KEY = "data";
 
     private static final String KIND_NORMAL = "normal";
-    private static final String KIND_FUEL = "fuel";
-
-    private static final String INPUTS_KEY = "inputs";
-    private static final String BURN_TIME_KEY = "burn_time";
 
     @Override
     public Type<? extends CustomPacketPayload> type() {
@@ -62,10 +57,11 @@ public record ShareRecipePacket(Identifier recipeTypeUid, Tag recipeTag, String 
                                                final IRecipeCategory<T> category,
                                                final Identifier recipeTypeUid,
                                                final T recipe,
+                                               final List<FocusPayload> focuses,
                                                @Nullable final Player player) {
         // Unfortunately fuel recipes need to be handled separately
         if (recipe instanceof IJeiFuelingRecipe fuelingRecipe) {
-            return encodeFuel(jeiHelpers, recipeTypeUid, fuelingRecipe, player);
+            return encodeFuel(jeiHelpers, recipeTypeUid, fuelingRecipe, focuses, player);
         }
 
         final ICodecHelper codecHelper = jeiHelpers.getCodecHelper();
@@ -78,48 +74,32 @@ public record ShareRecipePacket(Identifier recipeTypeUid, Tag recipeTag, String 
             return null;
         }
 
-        return new ShareRecipePacket(recipeTypeUid, wrapPayload(KIND_NORMAL, encoded.result().orElseThrow()), getSharerName(player));
+        return new ShareRecipePacket(recipeTypeUid, wrapPayload(KIND_NORMAL, encoded.result().orElseThrow()), List.copyOf(focuses), getSharerName(player));
     }
 
-    @Nullable
-    private static ShareRecipePacket encodeFuel(final IJeiHelpers jeiHelpers,
-                                                final Identifier recipeTypeUid,
-                                                final IJeiFuelingRecipe recipe,
-                                                @Nullable final Player player) {
-        final Codec<ITypedIngredient<ItemStack>> itemStackCodec = jeiHelpers.getCodecHelper()
-            .getTypedIngredientCodec(VanillaTypes.ITEM_STACK);
+    public static List<FocusPayload> captureDisplayedFocuses(final IRecipeSlotsView slotsView, final IJeiHelpers jeiHelpers) {
+        final List<FocusPayload> result = new ArrayList<>();
+        final ICodecHelper codecHelper = jeiHelpers.getCodecHelper();
 
-        final ListTag inputsTag = new ListTag();
-        for (final ItemStack input : recipe.getInputs()) {
-            final Optional<ITypedIngredient<ItemStack>> typedIngredient = jeiHelpers.getIngredientManager()
-                .createTypedIngredient(VanillaTypes.ITEM_STACK, input, false);
-            if (typedIngredient.isEmpty()) {
-                Constants.LOG.warn("Failed to encode JEI fuel recipe {}: invalid fuel input {}", recipeTypeUid, input);
-                return null;
-            }
+        for (final IRecipeSlotView slotView : slotsView.getSlotViews()) {
+            slotView.getDisplayedIngredient().ifPresent(typed -> {
+                final Tag ingredientTag = codecHelper.getTypedIngredientCodec()
+                    .codec()
+                    .encodeStart(NbtOps.INSTANCE, typed)
+                    .getOrThrow(error -> new IllegalStateException("Failed to encode JEI focus ingredient: " + error));
 
-            final DataResult<Tag> encodedInput = itemStackCodec.encodeStart(NbtOps.INSTANCE, typedIngredient.get())
-                .map(tag -> tag);
-            if (encodedInput.error().isPresent()) {
-                Constants.LOG.warn("Failed to encode JEI fuel recipe {} input {}: {}", recipeTypeUid, input, encodedInput.error().get().message());
-                return null;
-            }
-
-            inputsTag.add(encodedInput.result().orElseThrow());
+                result.add(new FocusPayload(slotView.getRole(), ingredientTag));
+            });
         }
 
-        final CompoundTag fuelData = new CompoundTag();
-        fuelData.put(INPUTS_KEY, inputsTag);
-        fuelData.putInt(BURN_TIME_KEY, recipe.getBurnTime());
-
-        return new ShareRecipePacket(recipeTypeUid, wrapPayload(KIND_FUEL, fuelData), getSharerName(player));
+        return List.copyOf(result);
     }
 
-    public static boolean isFuelPayload(final Tag tag) {
-        if (!(tag instanceof CompoundTag compound)) {
-            return false;
-        }
-        return compound.getString(KIND_KEY).isPresent() && KIND_FUEL.equals(compound.getString(KIND_KEY).get());
+    public static CompoundTag wrapPayload(final String kind, final Tag data) {
+        final CompoundTag root = new CompoundTag();
+        root.putString(KIND_KEY, kind);
+        root.put(DATA_KEY, data);
+        return root;
     }
 
     public static Tag unwrapNormalPayload(final Tag tag) {
@@ -130,46 +110,11 @@ public record ShareRecipePacket(Identifier recipeTypeUid, Tag recipeTag, String 
         return compound.get(DATA_KEY);
     }
 
-    public static FuelPayload decodeFuelPayload(final ICodecHelper codecHelper, final Tag tag) {
-        if (!(tag instanceof CompoundTag root)) {
-            throw new IllegalStateException("Expected wrapped fuel payload to be a CompoundTag");
-        }
-
-        final Tag dataTag = root.get(DATA_KEY);
-        if (!(dataTag instanceof CompoundTag fuelData)) {
-            throw new IllegalStateException("Expected fuel payload data to be a CompoundTag");
-        }
-
-        final Codec<ITypedIngredient<ItemStack>> itemStackCodec = codecHelper.getTypedIngredientCodec(VanillaTypes.ITEM_STACK);
-        final ListTag inputsTag = fuelData.getList(INPUTS_KEY)
-            .orElseThrow(() -> new IllegalStateException("Missing or invalid '" + INPUTS_KEY + "' list"));
-
-        final List<ItemStack> inputs = new ArrayList<>(inputsTag.size());
-        for (final Tag inputTag : inputsTag) {
-            final ITypedIngredient<ItemStack> typedIngredient = itemStackCodec.parse(NbtOps.INSTANCE, inputTag)
-                .getOrThrow(error -> new IllegalStateException("Failed to decode JEI fuel input: " + error));
-
-            final ItemStack stack = typedIngredient.getItemStack()
-                .orElseThrow(() -> new IllegalStateException("Decoded JEI fuel input was not an ItemStack"));
-
-            inputs.add(stack);
-        }
-
-        final int burnTime = fuelData.getInt(BURN_TIME_KEY)
-            .orElseThrow(() -> new IllegalStateException("Missing or invalid '" + BURN_TIME_KEY + "' value"));
-        return new FuelPayload(List.copyOf(inputs), burnTime);
-    }
-
-    private static CompoundTag wrapPayload(final String kind, final Tag data) {
-        final CompoundTag root = new CompoundTag();
-        root.putString(KIND_KEY, kind);
-        root.put(DATA_KEY, data);
-        return root;
-    }
-
-    private static String getSharerName(@Nullable final Player player) {
+    public static String getSharerName(@Nullable final Player player) {
         if (player != null) {
-            return player.getName().getString();
+            final String name = player.getName().getString();
+            // Safety in case some modded heuristics allows player names longer than 16 chars
+            return name.substring(0, Math.min(16, name.length()));
         }
         return Component.translatable("misc.justenoughrecipesharing.unknown").getString();
     }
@@ -180,8 +125,5 @@ public record ShareRecipePacket(Identifier recipeTypeUid, Tag recipeTag, String 
 
     public static void handleClient(final ShareRecipePacket payload, final PacketContext ctx) {
         ClientRecipeShareManager.receive(payload, ctx.getPlayer());
-    }
-
-    public record FuelPayload(List<ItemStack> inputs, int burnTime) {
     }
 }

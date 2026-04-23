@@ -34,6 +34,6 @@ public class JeiRecipeSharingPlugin implements IModPlugin {
     }
 
     public static <T> void openSharedRecipe(final ClientRecipeShareManager.SharedRecipeDrawable<T> shared) {
-        Internal.getJeiRuntime().getRecipesGui().showRecipes(shared.category(), List.of(shared.recipe()), List.of());
+        Internal.getJeiRuntime().getRecipesGui().showRecipes(shared.category(), List.of(shared.recipe()), shared.focuses());
     }
 }

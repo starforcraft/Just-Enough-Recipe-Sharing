@@ -1,8 +1,11 @@
 package com.ultramega.justenoughrecipesharing.recipes;
 
 import com.ultramega.justenoughrecipesharing.Constants;
+import com.ultramega.justenoughrecipesharing.network.FocusPayload;
 import com.ultramega.justenoughrecipesharing.network.ShareRecipePacket;
 import com.ultramega.justenoughrecipesharing.platform.Services;
+
+import java.util.List;
 
 import mezz.jei.api.gui.IRecipeLayoutDrawable;
 import mezz.jei.api.gui.builder.ITooltipBuilder;
@@ -52,11 +55,9 @@ public class RecipeShareButtonController<T> implements IIconButtonController {
         final IRecipeCategory<T> category = this.recipeLayoutDrawable.getRecipeCategory();
         final T recipe = this.recipeLayoutDrawable.getRecipe();
         final Identifier recipeTypeUid = category.getRecipeType().getUid();
+        final List<FocusPayload> focuses = ShareRecipePacket.captureDisplayedFocuses(this.recipeLayoutDrawable.getRecipeSlotsView(), this.jeiHelpers);
 
-        // TODO: currently if an ingredient is a tag all clients see different items in chat
-        //  so either create a snapshot of the items and display it for all clients accordingly
-        //  or cycle through the items like in the JEI view
-        final var packet = ShareRecipePacket.encode(this.jeiHelpers, category, recipeTypeUid, recipe, Minecraft.getInstance().player);
+        final var packet = ShareRecipePacket.encode(this.jeiHelpers, category, recipeTypeUid, recipe, focuses, Minecraft.getInstance().player);
         if (packet != null) {
             Services.PLATFORM.sendPacketToServer(packet);
         }

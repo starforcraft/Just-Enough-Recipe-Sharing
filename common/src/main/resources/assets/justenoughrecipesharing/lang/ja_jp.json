@@ -1,4 +1,5 @@
 {
   "tooltip.justenoughrecipesharing.share" : "レシピを共有",
-  "misc.justenoughrecipesharing.shared_recipe": "%sがレシピを共有しました：%s"
+  "misc.justenoughrecipesharing.shared_recipe": "%sがレシピを共有しました：%s",
+  "misc.justenoughrecipesharing.unknown": "Unknown"
 }
